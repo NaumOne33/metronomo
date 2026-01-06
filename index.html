@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metrônomo Pro</title>
+<link rel="manifest" href="manifest.json">
+
+<style>
+body{
+    font-family: Arial, Helvetica, sans-serif;
+    background:#0b1c2d;
+    color:#fff;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    margin:0;
+}
+.metronomo{
+    background:#122c44;
+    padding:20px;
+    width:360px;
+    border-radius:15px;
+    box-shadow:0 0 15px rgba(0,0,0,.5);
+}
+h1{text-align:center;font-size:22px}
+label{font-size:14px;margin-top:10px;display:block}
+input,select,button{width:100%}
+button{
+    margin-top:10px;
+    padding:10px;
+    background:gold;
+    border:none;
+    border-radius:8px;
+    font-weight:bold;
+    cursor:pointer;
+}
+.presets button{
+    width:32%;
+    margin:5px 1%;
+    font-size:12px;
+}
+</style>
+</head>
+
+<body>
+<div class="metronomo">
+<h1>🎵 Metrônomo Pro</h1>
+
+<label>BPM: <span id="bpmValor">60</span></label>
+<input type="range" id="bpm" min="1" max="999" value="60">
+
+<button id="tap">TAP TEMPO</button>
+
+<label>Compasso</label>
+<select id="compasso">
+<option value="2">2/4</option>
+<option value="3">3/4</option>
+<option value="4" selected>4/4</option>
+</select>
+
+<label>Subdivisão</label>
+<select id="subdivisao">
+<option value="1">Normal</option>
+<option value="2">Colcheia</option>
+<option value="3">Tercina</option>
+<option value="4">Semicolcheia</option>
+</select>
+
+<label>Volume</label>
+<input type="range" id="volume" min="0" max="100" value="30">
+
+<label>Swing (%)</label>
+<input type="range" id="swing" min="0" max="80" value="0">
+
+<div class="presets">
+<button onclick="preset('iniciante')">🎓 Iniciante</button>
+<button onclick="preset('tecnica')">🎼 Técnica</button>
+<button onclick="preset('velocidade')">⚡ Velocidade</button>
+</div>
+
+<button id="toggle">Iniciar</button>
+</div>
+
+<script>
+let audioCtx=null,intervalo,tocando=false;
+let tempo=1,sub=1,taps=[];
+
+const bpm=document.getElementById("bpm"),
+bpmValor=document.getElementById("bpmValor"),
+compasso=document.getElementById("compasso"),
+subdiv=document.getElementById("subdivisao"),
+volume=document.getElementById("volume"),
+swing=document.getElementById("swing");
+
+bpm.oninput=()=>bpmValor.textContent=bpm.value;
+
+document.getElementById("tap").onclick=()=>{
+    const agora=Date.now();
+    taps.push(agora);
+    if(taps.length>4){
+        let intervalos=[];
+        for(let i=1;i<taps.length;i++)intervalos.push(taps[i]-taps[i-1]);
+        const media=intervalos.reduce((a,b)=>a+b)/intervalos.length;
+        bpm.value=Math.round(60000/media);
+        bpmValor.textContent=bpm.value;
+        taps=[];
+    }
+};
+
+function click(acento=false){
+    if(!audioCtx)audioCtx=new AudioContext();
+    const osc=audioCtx.createOscillator();
+    const gain=audioCtx.createGain();
+    osc.frequency.value=acento?600:900;
+    gain.gain.value=(volume.value/100)*(acento?1.2:.8);
+    osc.connect(gain);gain.connect(audioCtx.destination);
+    osc.start();osc.stop(audioCtx.currentTime+.04);
+}
+
+function iniciar(){
+    const intervaloBase=60000/(bpm.value*subdiv.value);
+    let atrasoSwing=intervaloBase*(swing.value/100);
+    click(true);
+    intervalo=setInterval(()=>{
+        sub++;
+        if(sub>subdiv.value){sub=1;tempo++;if(tempo>compasso.value)tempo=1}
+        setTimeout(()=>click(tempo==1&&sub==1),sub%2?0:atrasoSwing);
+    },intervaloBase);
+    tocando=true;toggle.textContent="Parar";
+}
+function parar(){clearInterval(intervalo);tocando=false;tempo=1;sub=1;toggle.textContent="Iniciar";}
+toggle.onclick=()=>tocando?parar():iniciar();
+
+function preset(tipo){
+    if(tipo=="iniciante"){bpm.value=60;subdiv.value=1;volume.value=25;swing.value=0;}
+    if(tipo=="tecnica"){bpm.value=90;subdiv.value=4;volume.value=30;swing.value=0;}
+    if(tipo=="velocidade"){bpm.value=140;subdiv.value=2;volume.value=35;swing.value=20;}
+    bpmValor.textContent=bpm.value;
+}
+</script>
+
+<script>
+if("serviceWorker" in navigator){
+navigator.serviceWorker.register("service-worker.js");
+}
+</script>
+</body>
+</html>
